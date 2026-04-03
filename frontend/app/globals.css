@@ -1,0 +1,32 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body {
+  @apply bg-[#090b12] text-slate-100 antialiased;
+  background-image:
+    radial-gradient(circle at 12% 12%, rgba(0, 232, 193, 0.16), transparent 30%),
+    radial-gradient(circle at 86% 10%, rgba(113, 52, 215, 0.18), transparent 36%),
+    linear-gradient(180deg, #090b12, #0f1423 50%, #111827);
+}
+
+.glass {
+  background: rgba(13, 19, 34, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  backdrop-filter: blur(14px);
+}
+
+.section-title {
+  @apply text-3xl md:text-5xl font-semibold tracking-tight;
+}
