@@ -931,20 +931,6 @@ Environment-driven deployment
 
 Backend unit testing
 
-👨‍💻 Developer
-
-Rohit Bhardwaj
-
-Computer Science & Engineering
-
-Profiles
-
-GitHub: @rohitbhardwaj15
-
-LinkedIn: Rohit Bhardwaj
-
-Portfolio: Bloom Tech Works
-
 ⭐ Project Summary
 
 SmartQueue is a full-stack virtual queue optimization system that combines realtime queue management, algorithmic wait-time prediction, historical traffic analysis, and admin analytics to reduce physical waiting and improve service-center operations.
@@ -956,3 +942,9 @@ Next.js · React · TypeScript · Tailwind CSS · Node.js · Express.js · Mongo
 📄 License
 
 This project is developed for educational, portfolio, and demonstration purposes.
+
+
+
+
+
+
