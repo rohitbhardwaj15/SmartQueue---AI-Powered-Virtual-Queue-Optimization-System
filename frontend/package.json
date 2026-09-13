@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/prebuild-clean.mjs && next build && node scripts/copy-out.mjs",
+    "build": "next build",
     "start": "next start"
   },
   "dependencies": {
