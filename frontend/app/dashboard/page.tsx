@@ -35,13 +35,32 @@ export default function DashboardPage() {
 
       setOverview(overviewRes.data);
       setTrends(trendsRes.data);
-    } catch {
+    } catch (err: any) {
       setOverview(null);
       setTrends(null);
-      setError("Unauthorized or backend unavailable. Please enter valid admin key.");
+      const status = err?.response?.status;
+      if (status === 403) {
+        setError("Admin access is disabled on the server (ADMIN_API_KEY not configured).");
+      } else if (status === 401) {
+        setError("Invalid admin key.");
+      } else if (status === 429) {
+        setError("Too many attempts. Please wait a moment and try again.");
+      } else {
+        setError("Unauthorized or backend unavailable. Please enter a valid admin key.");
+      }
     } finally {
       setLoading(false);
     }
+  }
+
+  function clearAdminKey() {
+    // The key only ever lives in this component's state - it is never
+    // persisted to localStorage/sessionStorage - so clearing state here
+    // fully removes it from the browser.
+    setAdminKey("");
+    setOverview(null);
+    setTrends(null);
+    setError("");
   }
 
   return (
@@ -56,14 +75,22 @@ export default function DashboardPage() {
             value={adminKey}
             onChange={(e) => setAdminKey(e.target.value)}
             placeholder="Enter ADMIN_API_KEY"
+            autoComplete="new-password"
             className="w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 py-3 md:max-w-md"
           />
           <button
             onClick={loadAnalytics}
-            disabled={loading}
+            disabled={loading || !adminKey}
             className="rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400 px-5 py-3 font-semibold text-black disabled:opacity-50"
           >
             {loading ? "Loading..." : "Load Analytics"}
+          </button>
+          <button
+            onClick={clearAdminKey}
+            type="button"
+            className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 hover:bg-slate-800"
+          >
+            Clear
           </button>
         </div>
 

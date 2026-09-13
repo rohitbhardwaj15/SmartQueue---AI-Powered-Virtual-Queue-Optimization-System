@@ -39,11 +39,47 @@ export default function HomePage() {
   useEffect(() => {
     load();
 
-    const socket = io(getApiUrl(), { transports: ["websocket"] });
+    const socket = io(getApiUrl(), { transports: ["websocket"], reconnectionAttempts: 3 });
     socket.on("queue:joined", load);
     socket.on("queue:updated", load);
 
+    // Realtime push isn't available on every deployment - the serverless
+    // (Vercel) backend can't hold a persistent Socket.io connection, so
+    // socket.connect_error fires there instead of a successful handshake.
+    // Fall back to periodic polling in that case so the board still stays
+    // reasonably fresh, just not instant.
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    let socketConnected = false;
+
+    function startPolling() {
+      if (pollId) return;
+      pollId = setInterval(load, 15000);
+    }
+
+    function stopPolling() {
+      if (pollId) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+    }
+
+    socket.on("connect", () => {
+      socketConnected = true;
+      stopPolling();
+    });
+
+    socket.on("connect_error", () => {
+      if (!socketConnected) startPolling();
+    });
+
+    // Give the socket a moment to connect before assuming it's unavailable.
+    const fallbackTimer = setTimeout(() => {
+      if (!socketConnected) startPolling();
+    }, 4000);
+
     return () => {
+      clearTimeout(fallbackTimer);
+      stopPolling();
       socket.disconnect();
     };
   }, [load]);

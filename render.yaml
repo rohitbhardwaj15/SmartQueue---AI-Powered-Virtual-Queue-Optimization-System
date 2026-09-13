@@ -1,4 +1,4 @@
-﻿services:
+services:
   - type: web
     name: smartqueue-backend
     env: node
@@ -12,3 +12,12 @@
         sync: false
       - key: PORT
         value: 4000
+      - key: ADMIN_API_KEY
+        sync: false
+      - key: ALLOW_INSECURE_ADMIN
+        value: "false"
+      # Optional: set this if you provision a Redis instance to share
+      # rate-limit counters across multiple instances. Leave unset for a
+      # single instance (the default in-memory limiter works fine).
+      - key: REDIS_URL
+        sync: false

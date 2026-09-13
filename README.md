@@ -206,7 +206,7 @@ Rule-based queue prediction + historical pattern analysis, not a trained ML mode
 
 ┌─────────────────────────────────────────────────────┐
 │                   User / Admin                     │
-└────────────────────────┬────────────────────────────
+└────────────────────────┬────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────┐
@@ -468,9 +468,13 @@ Request header:
 
 x-admin-key: YOUR_ADMIN_API_KEY
 
-If ADMIN_API_KEY is not configured, the current middleware allows the request through. For deployment, configure the variable and use a strong secret.
+If ADMIN_API_KEY is not configured, admin routes now fail closed and return 403 by default. Set ALLOW_INSECURE_ADMIN=true to explicitly opt into unauthenticated admin routes for local development only — never in a real deployment. The key comparison is timing-safe, and admin routes are rate-limited separately from the rest of the API to slow down brute-force attempts.
 
-For a production system, static API-key authentication should be replaced with proper authentication and role-based access control.
+For a production system, static API-key authentication should still be replaced with proper user authentication and role-based access control — this remains a known limitation, just a safer default in the meantime.
+
+Priority: PATCH /api/queue/:id/priority (admin-only)
+
+Raises or lowers an existing entry's priority (0-5) and recalculates its predicted wait based on its new effective position in the queue. Priority is intentionally NOT settable from the public join endpoint — it used to be, but once priority started actually affecting queue order and wait estimates, that meant anyone could self-assign priority 5 on POST /join and jump the entire queue. Only staff with the admin key can raise it now, for cases like walk-in emergencies or manual overrides.
 
 🛠️ Tech Stack
 
@@ -511,6 +515,12 @@ CORS
 Morgan
 
 dotenv
+
+Helmet (security headers)
+
+express-rate-limit (per-route rate limiting)
+
+Zod (request validation)
 
 Database
 
@@ -620,6 +630,9 @@ PORT=4000
 MONGODB_URI=mongodb://127.0.0.1:27017/smartqueue
 CLIENT_ORIGIN=http://localhost:3000
 ADMIN_API_KEY=change-this-admin-key
+ALLOW_INSECURE_ADMIN=false
+
+See backend/.env.example for the full list of optional rate-limit tuning variables.
 
 Start the backend:
 
@@ -706,6 +719,12 @@ PORT=4000
 For production, also configure:
 
 ADMIN_API_KEY=your_secure_admin_key
+
+Optional, only needed if you're running multiple backend instances or the serverless (Vercel) backend and want rate limits to be shared rather than per-instance:
+
+REDIS_URL=your_redis_connection_string
+
+Note: realtime Socket.io updates (queue:joined, queue:updated) only work on this long-running Render deployment. If you deploy the backend to Vercel's serverless functions instead (backend/api/index.js), realtime push is unavailable there — the frontend automatically falls back to polling every 15 seconds in that case.
 
 📱 User Experience
 
@@ -891,17 +910,45 @@ Wait prediction is algorithmic rather than ML-trained
 
 Average service times are predefined by sector
 
-Historical adjustment is currently a simple factor
+Historical adjustment is a bounded, data-driven heuristic (derived from recent actual service durations), not a trained model
 
-Admin authentication uses an API key
+Admin authentication uses a single shared API key rather than per-user accounts/RBAC — anyone with the key has full admin access, and there's no audit trail of who served/completed/re-prioritized which entry
 
-Queue priority is stored but the current prediction formula does not dynamically optimize around priority
+Queue priority now affects wait-time estimates and ordering, and can only be set by an admin (see PATCH /:id/priority above), but there is still no configurable priority policy (e.g. per-branch weighting, automatic emergency detection)
 
 Notifications are not integrated with external providers
 
 No production-grade multi-tenant authorization layer
 
+Realtime updates (Socket.io) only work on the long-running server deployment (e.g. Render). The serverless Vercel deployment (backend/api/index.js) can't hold persistent socket connections, so it runs without realtime push; the frontend falls back to polling every 15s in that case, which is a reasonable but not equivalent substitute
+
+Rate limiting defaults to in-process memory, which is correct for a single server instance but not for multiple instances behind a load balancer or serverless cold starts — set REDIS_URL to share counters across instances (see .env.example)
+
 These limitations provide clear paths for future development.
+
+Resolved in this iteration (previously listed as limitations/bugs):
+
+Token generation used a read-then-increment pattern that could hand out duplicate tokens under concurrent joins for the same sector — now uses an atomic per-sector counter
+
+Admin routes allowed unauthenticated access by default when ADMIN_API_KEY was unset — now fail closed (403) unless ALLOW_INSECURE_ADMIN=true is explicitly set
+
+Admin key comparison was not timing-safe — now uses a constant-time comparison
+
+No input validation on request bodies/query params — now validated with Zod, with consistent 400 responses
+
+No rate limiting anywhere — now applied globally, plus tighter limits on /api/queue/join and all admin routes, with an optional Redis-backed store for multi-instance/serverless deployments
+
+Analytics endpoints pulled up to ~2000 raw documents into Node and reduced them in JavaScript — now computed via MongoDB's aggregation pipeline
+
+The in-memory fallback store (used when MONGODB_URI is unset) silently activated with no uniqueness guarantees — now logs a loud startup warning and uses the same atomic counter logic as MongoDB mode
+
+Priority used to be accepted directly on the public join endpoint, meaning anyone could self-assign priority 5 and jump the whole queue once priority started affecting ordering — it is now admin-only
+
+Rate limiters were module-level singletons shared across every app instance in a process (harmless in production, where one process only ever creates one app, but it made behavior hard to reason about and impossible to test reliably) — they're now built fresh per createApp() call
+
+req.ip resolved to the reverse proxy's address rather than the real client on both Render and Vercel, silently undermining per-client rate limiting — app.set("trust proxy", ...) is now configured (override via TRUST_PROXY if your topology differs)
+
+render.yaml didn't declare ADMIN_API_KEY or ALLOW_INSECURE_ADMIN, so a fresh Render deploy had no admin key configured unless added manually in the dashboard — both are now declared (as secrets to be filled in, not committed values)
 
 📊 Technical Highlights
 
@@ -931,6 +978,20 @@ Environment-driven deployment
 
 Backend unit testing
 
+👨‍💻 Developer
+
+Rohit Bhardwaj
+
+Computer Science & Engineering
+
+Profiles
+
+GitHub: @rohitbhardwaj15
+
+LinkedIn: Rohit Bhardwaj
+
+Portfolio: Bloom Tech Works
+
 ⭐ Project Summary
 
 SmartQueue is a full-stack virtual queue optimization system that combines realtime queue management, algorithmic wait-time prediction, historical traffic analysis, and admin analytics to reduce physical waiting and improve service-center operations.
@@ -942,9 +1003,3 @@ Next.js · React · TypeScript · Tailwind CSS · Node.js · Express.js · Mongo
 📄 License
 
 This project is developed for educational, portfolio, and demonstration purposes.
-
-
-
-
-
-

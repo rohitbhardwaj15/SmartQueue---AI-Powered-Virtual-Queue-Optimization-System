@@ -15,7 +15,7 @@ const io = new Server(server, {
   }
 });
 
-const app = createApp(io);
+const app = await createApp(io);
 server.on("request", app);
 
 io.on("connection", (socket) => {
